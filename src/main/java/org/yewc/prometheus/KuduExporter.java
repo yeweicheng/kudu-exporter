@@ -22,11 +22,13 @@ public class KuduExporter {
 
     private final static Logger LOGGER = LoggerFactory.getLogger(KuduExporter.class);
 
-    public static final CollectorRegistry registry = new CollectorRegistry();
+    private final static CollectorRegistry registry = new CollectorRegistry();
 
-    public static HTTPServer httpServer;
+    private static HTTPServer httpServer;
 
-    public static Map<String, Gauge> gaugeMap = new HashMap<>();
+    private static Map<String, Gauge> gaugeMap = new HashMap<>();
+
+    private final static String PREFIX = "kudu_";
 
     @Option(name="--url", usage="crape kudu url", required = true)
     private String url;
@@ -113,8 +115,8 @@ public class KuduExporter {
 
             for (int j = 0; j < metrics.size(); j++) {
                 metricData = metrics.getJSONObject(j);
-                name = metricData.getString("name");
-                if ("state".equals(name)) {
+                name = PREFIX + metricData.getString("name");
+                if ((PREFIX + "state").equals(name)) {
                     continue;
                 }
 
