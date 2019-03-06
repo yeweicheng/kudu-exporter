@@ -1,0 +1,40 @@
+group 'org.yewc.prometheus'
+version '1.0-SNAPSHOT'
+
+apply plugin: 'java'
+
+sourceCompatibility = 1.8
+
+repositories {
+    mavenCentral()
+}
+
+jar {
+    manifest {
+        attributes("Main-Class": "org.yewc.test.KuduSinkTest",
+                "Implementation-Title": "Gradle")
+    }
+    into('lib') {
+        from configurations.runtime
+    }
+}
+
+dependencies {
+    compile group: 'io.prometheus', name: 'simpleclient', version: '0.6.0'
+    compile group: 'io.prometheus', name: 'simpleclient_pushgateway', version: '0.6.0'
+    compile group: 'io.prometheus', name: 'simpleclient_httpserver', version: '0.6.0'
+    compile group: 'io.prometheus', name: 'simpleclient_hotspot', version: '0.6.0'
+
+    compile group: 'com.alibaba', name: 'fastjson', version: '1.2.56'
+    compile group: 'com.squareup.okio', name: 'okio', version: '1.4.0'
+    compile group: 'com.squareup.okhttp', name: 'okhttp', version: '2.4.0'
+    compile group: 'args4j', name: 'args4j', version: '2.33'
+    compile group: 'ch.qos.logback', name: 'logback-core', version: '1.2.3'
+    compile group: 'ch.qos.logback', name: 'logback-classic', version: '1.2.3'
+
+
+}
+
+tasks.withType(JavaCompile){
+    options.encoding = "UTF-8"
+}
