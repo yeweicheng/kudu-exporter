@@ -11,11 +11,11 @@ repositories {
 
 jar {
     manifest {
-        attributes("Main-Class": "org.yewc.test.KuduSinkTest",
+        attributes("Main-Class": "org.yewc.prometheus.KuduExporter",
                 "Implementation-Title": "Gradle")
     }
-    into('lib') {
-        from configurations.runtime
+    from {
+        configurations.compile.collect { it.isDirectory() ? it : zipTree(it) }
     }
 }
 

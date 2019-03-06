@@ -38,7 +38,7 @@ public class KuduExporter {
     private int port = 9098;
 
     @Option(name="--partition-format", usage="partition format string")
-    private String partitionFormat = "(HASH \\()(.+)(\\) PARTITION )([\\d]+)([\\, ]*)|(RANGE \\()([a-zA-z]+)(\\) PARTITION )(.+)";
+    private String partitionFormat = "(HASH \\()(.+)(\\) PARTITION )([\\d]+)([\\, ]*)|(RANGE \\()(.+)(\\) PARTITION )(.+)";
 
     @Option(name="--exclude-file", usage="TODO: exclude metrics list, text file will be fine")
     private String excludeFile;
@@ -143,29 +143,31 @@ public class KuduExporter {
 
     public List<String> getPartitionData(String data) throws Exception {
         List<String> labelValues = new ArrayList<>();
-
-        Matcher matcher = Pattern.compile(partitionFormat).matcher(data);
-        while (matcher.find()) {
-            String holeStr = matcher.group(0);
-            if (holeStr.startsWith("HASH")) {
-                labelValues.add(matcher.group(2));
-                labelValues.add(matcher.group(4));
-            } else {
-                labelValues.add(matcher.group(7));
-                labelValues.add(matcher.group(9).replaceAll("\"", ""));
+        try {
+            Matcher matcher = Pattern.compile(partitionFormat).matcher(data);
+            while (matcher.find()) {
+                String holeStr = matcher.group(0);
+                if (holeStr.startsWith("HASH")) {
+                    labelValues.add(matcher.group(2));
+                    labelValues.add(matcher.group(4));
+                } else {
+                    labelValues.add(matcher.group(7));
+                    labelValues.add(matcher.group(9).replaceAll("\"", ""));
+                }
             }
-        }
 
-        if (data.startsWith("RANGE")) {
-            labelValues.add(labelValues.get(0));
-            labelValues.add(labelValues.get(1));
-            labelValues.set(0, "");
-            labelValues.set(1, "");
-        } else if (data.startsWith("HASH") && !data.contains("RANGE")) {
-            labelValues.add("");
-            labelValues.add("");
+            if (data.startsWith("RANGE")) {
+                labelValues.add(labelValues.get(0));
+                labelValues.add(labelValues.get(1));
+                labelValues.set(0, "");
+                labelValues.set(1, "");
+            } else if (data.startsWith("HASH") && !data.contains("RANGE")) {
+                labelValues.add("");
+                labelValues.add("");
+            }
+        } catch (Exception e) {
+            throw e;
         }
-
         return labelValues;
     }
 
