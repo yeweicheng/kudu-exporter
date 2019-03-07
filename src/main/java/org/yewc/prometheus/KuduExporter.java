@@ -6,7 +6,6 @@ import com.alibaba.fastjson.JSONObject;
 import io.prometheus.client.CollectorRegistry;
 import io.prometheus.client.Gauge;
 import io.prometheus.client.exporter.HTTPServer;
-import org.kohsuke.args4j.Argument;
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
 import org.slf4j.Logger;
@@ -30,6 +29,8 @@ public class KuduExporter {
 
     private final static String PREFIX = "kudu_";
 
+    private final static String PARTITION_FORMAT = "(HASH \\()(.+)(\\) PARTITION )([\\d]+)([\\, ]*)|(RANGE \\()(.+)(\\) PARTITION )(.+)";
+
     @Option(name="--url", usage="crape kudu url", required = true)
     private String url;
 
@@ -38,9 +39,6 @@ public class KuduExporter {
 
     @Option(name="--port", usage="web port")
     private int port = 9098;
-
-    @Option(name="--partition-format", usage="partition format string")
-    private String partitionFormat = "(HASH \\()(.+)(\\) PARTITION )([\\d]+)([\\, ]*)|(RANGE \\()(.+)(\\) PARTITION )(.+)";
 
     @Option(name="--exclude-file", usage="TODO: exclude metrics list, text file will be fine")
     private String excludeFile;
@@ -81,6 +79,9 @@ public class KuduExporter {
         JSONArray metrics;
         Gauge tempGauge = null;
         String id, type, key, name;
+        String[] allKeys = null;
+        Set<String> valueKeys = null;
+        List<String> newLabelValues = null;
         double value;
         for (int i = 0; i < result.size(); i++) {
             data = result.getJSONObject(i);
@@ -123,20 +124,50 @@ public class KuduExporter {
                 key = name;
 
                 try {
-                    value = metricData.containsKey("value")?metricData.getDouble("value"):metricData.getDouble("mean");
 
-                    if (!gaugeMap.containsKey(key)) {
-                        tempGauge = Gauge.build()
-                                .name(name)
-                                .help("kudu metrics: " + name)
-                                .labelNames(attrKeys)
-                                .register(registry);
-                        gaugeMap.put(key, tempGauge);
+                    if (metricData.containsKey("value")) {
+                        value = metricData.getDouble("value");
+                        if (!gaugeMap.containsKey(key)) {
+                            tempGauge = Gauge.build()
+                                    .name(name)
+                                    .help("kudu metrics: " + name)
+                                    .labelNames(attrKeys)
+                                    .register(registry);
+                            gaugeMap.put(key, tempGauge);
+                        }
+
+                        gaugeMap.get(key).labels(labelValues.toArray(new String[0])).set(value);
+                    } else {
+                        valueKeys = metricData.keySet();
+                        valueKeys.remove("name");
+
+                        allKeys = new String[attrKeys.length + 1];
+                        for (int k = 0; k < attrKeys.length; k++) {
+                            allKeys[k] = attrKeys[k];
+                        }
+                        allKeys[allKeys.length - 1] = "value_type";
+
+                        if (!gaugeMap.containsKey(key)) {
+                            tempGauge = Gauge.build()
+                                    .name(name)
+                                    .help("kudu metrics: " + name)
+                                    .labelNames(allKeys)
+                                    .register(registry);
+                            gaugeMap.put(key, tempGauge);
+                        }
+
+                        for (String valueKey : valueKeys) {
+                            newLabelValues = new ArrayList<>(labelValues.size() + 1);
+                            for (int k = 0; k < labelValues.size(); k++) {
+                                newLabelValues.add(labelValues.get(k));
+                            }
+                            newLabelValues.add(valueKey);
+                            gaugeMap.get(key).labels(newLabelValues.toArray(new String[0])).set(metricData.getDouble(valueKey));
+                        }
                     }
 
-                    gaugeMap.get(key).labels(labelValues.toArray(new String[0])).set(value);
                 } catch (Exception e) {
-                    LOGGER.error(e.getLocalizedMessage() + ": " + data.toJSONString());
+                    LOGGER.error(data.toJSONString(), e);
                 }
 
             }
@@ -146,7 +177,7 @@ public class KuduExporter {
     public List<String> getPartitionData(String data) throws Exception {
         List<String> labelValues = new ArrayList<>();
         try {
-            Matcher matcher = Pattern.compile(partitionFormat).matcher(data);
+            Matcher matcher = Pattern.compile(PARTITION_FORMAT).matcher(data);
             while (matcher.find()) {
                 String holeStr = matcher.group(0);
                 if (holeStr.startsWith("HASH")) {
