@@ -23,7 +23,7 @@
     <Logger name="org.yewc.prometheus.KuduExporter" level="INFO"/>
 
     <root level="INFO">
-        <appender-ref ref="console" />
+        <appender-ref ref="file" />
     </root>
 
 </configuration>
