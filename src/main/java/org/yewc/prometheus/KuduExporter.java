@@ -64,6 +64,8 @@ public class KuduExporter {
     private static Long excludeFileModified;
     private static Long includeFileModified;
 
+    private static int retry;
+
     private void start() throws Exception {
         LOGGER.info("use url: " + url);
         LOGGER.info("use port: " + port);
@@ -168,7 +170,23 @@ public class KuduExporter {
     }
 
     public void processRequest() throws Exception {
-        String text = HttpReqUtil.get(url);
+        String text = null;
+        try {
+            text = HttpReqUtil.get(url);
+            retry = 0;
+        } catch (Exception e) {
+            retry++;
+            if (retry > 60) {
+                LOGGER.error("retry time over" + retry + ", stop program", e);
+                throw e;
+            }
+
+            LOGGER.error("retry time " + retry, e);
+            return;
+        }
+
+        gaugeMap.entrySet().stream().forEach(entry -> entry.getValue().clear());
+
         JSONArray result = JSON.parseArray(text);
 
         JSONObject data;
@@ -252,6 +270,7 @@ public class KuduExporter {
                         }
 
                         gaugeMap.get(key).labels(labelValues.toArray(new String[0])).set(value);
+
                     } else {
                         valueKeys = metricData.keySet();
                         valueKeys.remove("name");
@@ -277,7 +296,9 @@ public class KuduExporter {
                                 newLabelValues.add(labelValues.get(k));
                             }
                             newLabelValues.add(valueKey);
-                            gaugeMap.get(key).labels(newLabelValues.toArray(new String[0])).set(metricData.getDouble(valueKey));
+                            gaugeMap.get(key)
+                                    .labels(newLabelValues.toArray(new String[0]))
+                                    .set(metricData.getDouble(valueKey));
                         }
                     }
 
